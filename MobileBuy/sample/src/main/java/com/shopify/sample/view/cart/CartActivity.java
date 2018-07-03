@@ -38,17 +38,21 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wallet.Wallet;
 import com.google.android.gms.wallet.WalletConstants;
 import com.shopify.buy3.pay.PayHelper;
+import com.shopify.graphql.support.ID;
 import com.shopify.sample.BaseApplication;
 import com.shopify.sample.BuildConfig;
 import com.shopify.sample.R;
+import com.shopify.sample.customer.CustomerUtils;
 import com.shopify.sample.domain.model.Checkout;
 import com.shopify.sample.domain.model.ShopSettings;
+import com.shopify.sample.util.SharedPreferenceManager;
 import com.shopify.sample.view.ProgressDialogHelper;
 import com.shopify.sample.view.ScreenRouter;
 import com.shopify.sample.view.checkout.CheckoutViewModel;
@@ -58,6 +62,9 @@ import butterknife.ButterKnife;
 
 public final class CartActivity extends AppCompatActivity implements LifecycleRegistryOwner,
   GoogleApiClient.ConnectionCallbacks {
+
+  private static final String TAG = CartActivity.class.getSimpleName();
+
   @BindView(R.id.root) View rootView;
   @BindView(R.id.cart_header) CartHeaderView cartHeaderView;
   @BindView(R.id.cart_list) CartListView cartListView;
@@ -108,6 +115,7 @@ public final class CartActivity extends AppCompatActivity implements LifecycleRe
     connectGoogleApiClient();
 
     lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE);
+    CustomerUtils.login("rahulbhardwaj@avanti.in", "avanti123");
   }
 
   @Override protected void onStart() {
@@ -225,8 +233,14 @@ public final class CartActivity extends AppCompatActivity implements LifecycleRe
   }
 
   private void onWebCheckoutConfirmation(final Checkout checkout) {
-    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(checkout.webUrl));
-    startActivity(intent);
+//    String token = SharedPreferenceManager.getInstance().getValue("ACCESS_TOKEN", "");
+//    String url = String.format("%s&customer_access_token=%s", checkout.webUrl, token);
+//    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+//    startActivity(intent);
+
+      String accessToken = SharedPreferenceManager.getInstance().getValue("ACCESS_TOKEN", "");
+      Log.d(TAG, "Web checkout Url: " + checkout.webUrl);
+      CustomerUtils.associate(new ID(checkout.id), accessToken, this);
   }
 
   private void showError(final int requestId, final Throwable t, final String message) {

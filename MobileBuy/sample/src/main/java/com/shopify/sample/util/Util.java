@@ -166,7 +166,6 @@ public final class Util {
     return TextUtils.join("&", queryList);
   }
 
-
   public static String getQueryUrl(String rootUrl) {
     Map<String, String> queryMap = new HashMap<>();
     queryMap.put("first_name", "Avanti");
