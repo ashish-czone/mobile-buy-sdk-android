@@ -1,0 +1,41 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:wheel="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/dlgProgress"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_gravity="center"
+    android:background="@android:color/transparent">
+
+    <com.shopify.sample.util.ProgressWheel
+        android:id="@+id/progress_wheel"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerInParent="true"
+        android:layout_centerVertical="true"
+        wheel:matProg_barColor="@android:color/holo_blue_dark"
+        wheel:matProg_fillRadius="true"
+        wheel:matProg_progressIndeterminate="false"/>
+
+    <ImageView
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_centerHorizontal="true"
+        android:layout_centerVertical="true"
+        android:src="@drawable/ic_launcher"
+        android:visibility="gone"
+        android:contentDescription="Some text" />
+
+    <TextView
+        android:id="@+id/tvProgress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/progress_wheel"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:text="Loading..."
+        android:textColor="@android:color/holo_blue_dark"
+        android:textSize="15sp"
+        android:visibility="gone" />
+
+</RelativeLayout>

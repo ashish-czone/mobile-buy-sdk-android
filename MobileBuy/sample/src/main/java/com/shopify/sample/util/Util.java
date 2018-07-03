@@ -24,13 +24,21 @@
 
 package com.shopify.sample.util;
 
+import android.content.Context;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.text.TextUtilsCompat;
+import android.text.TextUtils;
+import android.util.Pair;
+
+import com.shopify.buy3.Storefront;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class Util {
 
@@ -139,6 +147,63 @@ public final class Util {
     R reduce(R acc, T val);
   }
 
-  private Util() {
+  public static String getQueryUrl(String rootUrl, Storefront.MailingAddress address) {
+    Map<String, String> queryMap = new HashMap<>();
+    queryMap.put("first_name", address.getFirstName());
+    queryMap.put("last_name", address.getLastName());
+    queryMap.put("phone", address.getPhone());
+    queryMap.put("address1", address.getAddress1());
+    queryMap.put("address2", address.getAddress2());
+    queryMap.put("city", address.getCity());
+    queryMap.put("province", address.getProvince());
+    queryMap.put("country", address.getCountry());
+    queryMap.put("zip", address.getZip());
+    List<String> queryList = new ArrayList<>();
+    queryList.add(rootUrl);
+    for (Map.Entry<String, String> entry : queryMap.entrySet()) {
+      queryList.add(String.format("checkout[billing_address][%s]=%s", entry.getKey(), entry.getValue()));
+    }
+    return TextUtils.join("&", queryList);
   }
+
+
+  public static String getQueryUrl(String rootUrl) {
+    Map<String, String> queryMap = new HashMap<>();
+    queryMap.put("first_name", "Avanti");
+    queryMap.put("last_name", "Testing");
+    queryMap.put("phone", "9876543210");
+    queryMap.put("address1", "212, Shahpur Jat");
+    queryMap.put("address2", "Near DD Park");
+    queryMap.put("city", "New Delhi");
+    queryMap.put("province", "Delhi");
+    queryMap.put("country", "India");
+    queryMap.put("zip", "110049");
+    List<String> queryList = new ArrayList<>();
+    queryList.add(rootUrl);
+    for (Map.Entry<String, String> entry : queryMap.entrySet()) {
+      queryList.add(String.format("checkout[billing_address][%s]=%s", entry.getKey(), entry.getValue()));
+    }
+    return TextUtils.join("&", queryList);
+  }
+
+
+  private Util() {}
+
+
+  /**
+   * For Displaying the loading when a service is hit
+   */
+  public static void showLoading(Context mContext) {
+    if (mContext != null) {
+      CallProgressWheel.showLoadingDialog(mContext, "Loading...");
+    }
+  }
+
+  /**
+   * For hiding the loading
+   */
+  public static void hideLoading() {
+    CallProgressWheel.dismissLoadingDialog();
+  }
+
 }
