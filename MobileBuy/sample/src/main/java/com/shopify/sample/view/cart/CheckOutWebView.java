@@ -46,6 +46,7 @@ public class CheckOutWebView extends AppCompatActivity {
         mWebViewPayment.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                view.loadUrl(getJavascript());
                 return true;
             }
 
@@ -59,17 +60,24 @@ public class CheckOutWebView extends AppCompatActivity {
                     public void run() {
                         Util.hideLoading();
                     }
-                }, 7000);
+                }, 6000);
+                view.loadUrl("javascript:$(document).ajaxComplete(function (event, request, settings) { " +
+                        "var d = document.getElementsByClassName(\"link--small\")[1];" +
+                        "var f = document.getElementsByClassName('step__footer__previous-link')[0];" +
+                        "if(d) d.style.display = 'none';" +
+                        "if(f) f.style.display = 'none';" +
+                        "});");
             }
         });
         Bundle extras = getIntent().getExtras();
         if ( extras != null) {
             String url = extras.getString("URL", null);
-            String token = extras.getString("ACCESS_TOKEN", null);
+            // String token = extras.getString("ACCESS_TOKEN", null);
             if(url != null) {
-                Map<String, String> additionalHttpHeaders = new HashMap<>();
-                additionalHttpHeaders.put("X-Shopify-Customer-Access-Token", token);
-                mWebViewPayment.loadUrl(url, additionalHttpHeaders);
+               // Map<String, String> additionalHttpHeaders = new HashMap<>();
+               // additionalHttpHeaders.put("X-Shopify-Customer-Access-Token", token);
+               // mWebViewPayment.loadUrl(url, additionalHttpHeaders);
+                mWebViewPayment.loadUrl(url);
             } else {
                 onBackPressed();
             }
@@ -83,8 +91,6 @@ public class CheckOutWebView extends AppCompatActivity {
         }
     }
 
-
-
     private String getJavascript() {
         return "javascript:(function(){" +
                 "var a = document.getElementsByClassName(\"section--billing-address\")[0];" +
@@ -92,13 +98,13 @@ public class CheckOutWebView extends AppCompatActivity {
                 "var c = document.getElementsByClassName(\"link--small\")[0];" +
                 "var d = document.getElementsByClassName(\"link--small\")[1];" +
                 "var e = document.getElementsByClassName('step__footer__continue-btn')[0];" +
-                "var f = document.getElementsByClassName('section')[0];" +
+                "var f = document.getElementsByClassName('step__footer__previous-link')[0];" +
                 "if(a) a.style.display = 'none';" +
                 "if(b) b.style.display = 'none';" +
                 "if(c) c.style.display = 'none';" +
                 "if(d) d.style.display = 'none';" +
                 (mToggle?"if(e) e.click();" : "") +
                 "if(f) f.style.display = 'none';" +
-                "};)()";
+                "})();";
     }
 }

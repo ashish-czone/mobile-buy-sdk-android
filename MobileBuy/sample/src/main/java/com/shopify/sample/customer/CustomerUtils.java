@@ -68,11 +68,7 @@ public class CustomerUtils {
                 if (!response.hasErrors() && response.data() != null) {
                     Storefront.Checkout checkout = response.data().getCheckoutCustomerAssociate().getCheckout();
                     Log.d(TAG, "Web checkout Url: " + checkout.getWebUrl());
-                    Intent intent = new Intent(context, CheckOutWebView.class);
-                    intent.putExtra("URL",  checkout.getWebUrl());
-                    intent.putExtra("ACCESS_TOKEN", customerAccessToken);
-                    context.startActivity(intent);
-                    // getCustomerDetails(context, checkout.getWebUrl(), customerAccessToken);
+                    getCustomerDetails(context, checkout.getWebUrl(), customerAccessToken);
                 } else {
                     Log.d(TAG, response.formatErrorMessage());
                 }
@@ -85,7 +81,7 @@ public class CustomerUtils {
         });
     }
 
-    public static void getCustomerDetails(Context context, String webUrl, String customerAccessToken) {
+    private static void getCustomerDetails(Context context, String webUrl, String customerAccessToken) {
         Storefront.QueryRootQuery query = Storefront.query(root -> root
                 .customer(customerAccessToken, customer -> customer
                         .defaultAddress(connection -> connection
@@ -110,7 +106,7 @@ public class CustomerUtils {
                     String url = Util.getQueryUrl(webUrl, address);
                     Log.d(TAG, "getCustomerDetails: Web checkout Url: " + url);
                     Intent intent = new Intent(context, CheckOutWebView.class);
-                    intent.putExtra("URL", url);
+                    intent.putExtra("URL", Util.getQueryUrl(url, address));
                     intent.putExtra("ACCESS_TOKEN", customerAccessToken);
                     context.startActivity(intent);
                 } else {

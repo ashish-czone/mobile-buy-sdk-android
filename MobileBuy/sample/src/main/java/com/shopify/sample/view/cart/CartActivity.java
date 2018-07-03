@@ -53,6 +53,7 @@ import com.shopify.sample.customer.CustomerUtils;
 import com.shopify.sample.domain.model.Checkout;
 import com.shopify.sample.domain.model.ShopSettings;
 import com.shopify.sample.util.SharedPreferenceManager;
+import com.shopify.sample.util.Util;
 import com.shopify.sample.view.ProgressDialogHelper;
 import com.shopify.sample.view.ScreenRouter;
 import com.shopify.sample.view.checkout.CheckoutViewModel;
@@ -238,9 +239,13 @@ public final class CartActivity extends AppCompatActivity implements LifecycleRe
 //    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
 //    startActivity(intent);
 
-      String accessToken = SharedPreferenceManager.getInstance().getValue("ACCESS_TOKEN", "");
-      Log.d(TAG, "Web checkout Url: " + checkout.webUrl);
-      CustomerUtils.associate(new ID(checkout.id), accessToken, this);
+//      String accessToken = SharedPreferenceManager.getInstance().getValue("ACCESS_TOKEN", "");
+//      Log.d(TAG, "Web checkout Url: " + checkout.webUrl);
+//      CustomerUtils.associate(new ID(checkout.id), accessToken, this);
+
+    Intent intent = new Intent(this, CheckOutWebView.class);
+    intent.putExtra("URL", Util.getQueryUrl(Util.getQueryUrl(checkout.webUrl)));
+    startActivity(intent);
   }
 
   private void showError(final int requestId, final Throwable t, final String message) {

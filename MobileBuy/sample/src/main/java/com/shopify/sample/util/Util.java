@@ -182,6 +182,7 @@ public final class Util {
     for (Map.Entry<String, String> entry : queryMap.entrySet()) {
       queryList.add(String.format("checkout[billing_address][%s]=%s", entry.getKey(), entry.getValue()));
     }
+    queryList.add(String.format("checkout[%s]=%s", "email_or_phone", "yashpal@avanti.in"));
     return TextUtils.join("&", queryList);
   }
 
