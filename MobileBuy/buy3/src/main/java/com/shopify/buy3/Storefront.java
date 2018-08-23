@@ -21467,6 +21467,14 @@ public class Storefront {
                 }
 
                 /**
+                 * A unique identifier for the order
+                 */
+                public OrderQuery id() {
+                    startField("id");
+                    return this;
+                }
+
+                /**
                 * The customer's phone number.
                 */
                 public OrderQuery phone() {
