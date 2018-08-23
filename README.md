@@ -6,7 +6,7 @@
 
 # Mobile Buy SDK
 
-The Mobile Buy SDK makes it easy to create custom storefronts in your mobile app, where users can buy products using Android Pay or their credit card. The SDK connects to the Shopify platform using GraphQL, and supports a wide range of native storefront experiences.
+The Mobile Buy SDK makes it easy to create custom storefronts in your mobile app, where users can buy products using Google Pay or their credit card. The SDK connects to the Shopify platform using GraphQL, and supports a wide range of native storefront experiences.
 
 ## Table of contents
 
@@ -38,14 +38,6 @@ The Mobile Buy SDK makes it easy to create custom storefronts in your mobile app
 - [Card vaulting](#card-vaulting-)
   - [Card client](#card-client-)
 
-- [Android Pay](#android-pay-)
-  - [PayCart](#paycart-)
-  - [PayHelper](#payhelper-)
-      - [Masked Wallet](#masked-wallet-)
-      - [Full Wallet](#full-wallet-)
-      - [SupportWalletFragment](#supportwalletfragment-)
-      - [Retry Purchase](#retry-purchase-)
-
 - [Case studies](#case-studies-)
   - [Fetch shop](#fetch-shop-)
   - [Fetch collections and products](#fetch-collections-and-products-)
@@ -55,10 +47,11 @@ The Mobile Buy SDK makes it easy to create custom storefronts in your mobile app
       - [Creating a checkout](#checkout-)
       - [Updating a checkout](#updating-a-checkout-)
       - [Polling for shipping rates](#polling-for-shipping-rates-)
+      - [Updating shipping line](#updating-shipping-line-)
       - [Completing a checkout](#completing-a-checkout-)
           - [Web](#web-checkout-)
           - [Credit card](#credit-card-checkout-)
-          - [Android Pay](#android-pay-checkout-)
+          - [Google Pay](#google-pay-checkout-)
       - [Polling for checkout completion](#polling-for-checkout-completion-)
   - [Customer Accounts](#customer-accounts-)
       - [Creating a customer](#creating-a-customer-)
@@ -82,7 +75,7 @@ Mobile Buy SDK for Android is represented by runtime module that provides suppor
 ##### Gradle:
 
 ```gradle
-compile 'com.shopify.mobilebuysdk:buy3:3.2.2'
+compile 'com.shopify.mobilebuysdk:buy3:3.2.3'
 ```
 
 ##### or Maven:
@@ -91,7 +84,7 @@ compile 'com.shopify.mobilebuysdk:buy3:3.2.2'
 <dependency>
   <groupId>com.shopify.mobilebuysdk</groupId>
   <artifactId>buy3</artifactId>
-  <version>3.2.2</version>
+  <version>3.2.3</version>
 </dependency>
 ```
 
@@ -535,7 +528,7 @@ QueryGraphCall call = graphClient.queryGraph(query);
 call.enqueue(new GraphCall.Callback<Storefront.QueryRoot>() {
 
   @Override public void onResponse(GraphResponse<Storefront.QueryRoot> response) {
-  	...
+       ...
   }
 
   @Override public void onFailure(GraphError error) {
@@ -657,10 +650,18 @@ The Buy SDK supports native checkout via GraphQL, which lets you complete a chec
 
 ### Card Client [⤴](#table-of-contents)
 
-Like `GraphClient`, the `CardClient` manages your interactions with the card server that provides opaque credit card tokens. The tokens are used to complete checkouts. After collecting the user's credit card information in a secure manner, create a credit card representation and submit a vault request:
+Like `GraphClient`, the `CardClient` manages your interactions with the card server that provides opaque credit card tokens. The tokens are used to complete checkouts. To vault credit cards using the `CardClient`, you will need to request a url for the cardserver from the shop config:
 
 ```java
-StoreFront.Checkout checkout = ...;
+final Storefront.QueryRootQuery query = Storefront.query(q -> q.shop(shop ->
+    shop.paymentSettings(paymentSettings -> paymentSettings.cardVaultUrl())
+))
+```
+
+After collecting the user's credit card information in a secure manner, create a credit card representation and submit a vault request:
+
+```java
+String cardVaultUrl = ...;
 CardClient cardClient = ...;
 
 CreditCard creditCard = CreditCard.builder()
@@ -672,218 +673,17 @@ CreditCard creditCard = CreditCard.builder()
   .verificationCode("111")
   .build();
 
-cardClient.vault(creditCard, checkout.getVaultUrl()).enqueue(new CreditCardVaultCall.Callback() {
+cardClient.vault(creditCard, cardVaultUrl).enqueue(new CreditCardVaultCall.Callback() {
   @Override public void onResponse(@NonNull String token) {
     // proceed to complete checkout with token
   }
 
   @Override public void onFailure(@NonNull IOException error) {
-        // handle error
+    // handle error
   }
 });
 ```
 **IMPORTANT:** The credit card vaulting service does **not** provide any validation for submitted credit cards. As a result, submitting invalid credit card numbers or even missing fields will always yield a vault `token`. Any errors related to invalid credit card information will be surfaced only when the provided `token` is used to complete a checkout.
-
-## Android Pay [⤴](#table-of-contents)
-
-**DEPRECATED. NOT SUPPORTED**
-
-Support for Android Pay is provided by the `com.shopify.mobilebuysdk:pay` extension library. It is a separate module from the Buy SDK that offers helper classes for supporting Android Pay in your application. It helps you with the Android Pay workflow by providing convenient helper functions and structures.
-
-Learn more about [Android Pay](https://developers.google.com/android-pay/get-started).
-
-### PayCart [⤴](#table-of-contents)
-
-`PayCart` is a structure that represents a virtual user Android Pay shopping cart by encapsulating all the states necessary for the purchase:
-
-- shop's currency
-- merchant's name
-- selected product line items
-- selected shipping rate
-- tax
-
-```java
-PayCart payCart = PayCart.builder()
-  .merchantName(MERCHANT_NAME)
-  .currencyCode(shop.currency)
-  .shippingAddressRequired(checkout.requiresShipping)
-  .phoneNumberRequired(true)
-  .shipsToCountries(Arrays.asList("US", "CA"))
-  .addLineItem("Product1", 1, BigDecimal.valueOf(1.99))
-  .addLineItem("Product2", 10, BigDecimal.valueOf(3.99))
-  .subtotal(checkout.subtotalPrice)
-  .totalPrice(checkout.totalPrice)
-  .taxPrice(checkout.taxPrice)
-  .build();
-```
-
-Additionally, `PayCart` provides two functions to help with Masked Wallet and Full Wallet requests:
-
-1. `maskedWalletRequest` to request Masked Wallet information:
-  ```java
-  MaskedWalletRequest maskedWalletRequest = payCart.maskedWalletRequest(ANDROID_PAY_PUBLIC_KEY);
-  ```
-
-2. `fullWalletRequest` to request Full Wallet information:
-  ```java
-  FullWalletRequest fullWalletRequest = payCart.fullWalletRequest(maskedWallet);
-  ```
-
-### PayHelper [⤴](#table-of-contents)
-
-`PayHelper` is a helper class that simplifies interactions with Android Pay. It provides the following helper functions:
-
-- `isAndroidPayEnabledInManifest` checks if Android Pay is enabled
-- `isReadyToPay` checks if Android Pay is ready to start purchase flow
-- `requestMaskedWallet` requests Masked Wallet information (such as billing address, shipping address, and payment method) from the Android Pay
-- `initializeWalletFragment` initializes wallet confirmation `SupportWalletFragment` fragment with obtained Masked Wallet information
-- `requestFullWallet` requests Full Wallet information to get payment token and complete checkout
-- `newMaskedWallet` requests Masked Wallet information from existing one with new Google Transaction Id. This is useful when a user wants to retry a failed purchase and the current Google Transaction Id is no longer valid.
-- `handleWalletResponse` helps to handle Android Pay wallet response by delegation callbacks via `WalletResponseHandler`
-- `extractPaymentToken` to extract PaymentToken to complete the checkout
-
-#### Masked Wallet [⤴](#table-of-contents)
-
-To request Masked Wallet information and begin the checkout flow:
-
-1. Check if Android Pay is enabled:
-  ```java
-  if (PayHelper.isAndroidPayEnabledInManifest(context)) {
-  // show Android Pay button
-  }
-  ```
-
-2. Build `GoogleApiClient` with `Wallet.API` enabled, and connect it:
-  ```java
-  googleApiClient = new GoogleApiClient.Builder(context)
-    .addApi(Wallet.API, new Wallet.WalletOptions.Builder()
-      .setEnvironment(ANDROID_PAY_ENVIRONMENT)
-      .setTheme(WalletConstants.THEME_DARK)
-      .build())
-  .addConnectionCallbacks(callback)
-  .build();
-
-  ...
-
-  googleApiClient.connect();
-  ```
-
-3. Create `PayCart` with all mandatory fields, including the the currency code obtained from `Storefront.Shop`, the Android Pay merchant name, and associated line items (title, price, quantity):
-  ```java
-  PayCart payCart = PayCart.builder()
-    .merchantName(MERCHANT_NAME)
-    .currencyCode(shop.currency)
-    .shippingAddressRequired(checkout.requiresShipping)
-    .phoneNumberRequired(true)
-    .shipsToCountries(Arrays.asList("US", "CA"))
-    .addLineItem("Product1", 1, BigDecimal.valueOf(1.99))
-    .addLineItem("Product2", 10, BigDecimal.valueOf(3.99))
-    .subtotal(checkout.subtotalPrice)
-    .totalPrice(checkout.totalPrice)
-    .taxPrice(checkout.taxPrice)
-    .build();
-  ```
-
-4. Start the payment flow by requesting Masked Wallet information:
-  ```java
-  PayHelper.requestMaskedWallet(googleApiClient, payCart, ANDROID_PAY_PUBLIC_KEY);
-  ```
-
-After the user authorizes their payment information on the Android Pay screen, `onActivityResult` will be called with returned Masked Wallet information, the Google Transaction ID, and all subsequent change Masked Wallet and Full Wallet requests pertaining to this transaction.
-
-The helper function `handleWalletResponse` helps you with response handling for Masked Wallet requests:
-
-```java
-@Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-  PayHelper.handleWalletResponse(requestCode, resultCode, data, new PayHelper.WalletResponseHandler() {
-
-    @Override public void onWalletError(int requestCode, int errorCode) {
-      // show error, errorCode is one of defined in com.google.android.gms.wallet.WalletConstants
-    }
-
-    @Override public void onMaskedWallet(final MaskedWallet maskedWallet) {
-      // show order confirmation screen to complete checkout
-      // update checkout with shipping address from Masked Wallet
-      // fetch shipping rates
-    }
-  });
-}
-```
-
-#### Full Wallet [⤴](#table-of-contents)
-
-Masked Wallet information includes the shipping address and billing address, to be used for calculating the exact total purchase price. After the app obtains the Masked Wallet, it should present a confirmation page showing the total cost (`Storefront.Checkout#getTotalPrice`) of the items purchased in the transaction, total taxes (`Storefront.Checkout#getTotalTax`), and an option to select shipping method if the checkout requires shipping (`StoreFront.Checkout#getRequiresShipping`).
-
-When the user confirms the order, Full Wallet information should be requested (`PayHelper#requestFullWallet`) to obtain the payment token required to complete checkout. To request Full Wallet information, you must provide the updated cart with the exact total purchase price and the Masked Wallet that was authorized by the user:
-
-```java
-PayHelper.requestFullWallet(googleApiClient, payCart, maskedWallet);
-```
-
-After you retrieve the Full Wallet in the `onActivityResult`, you have enough information to proceed to payment processing for this transaction:
-
-```java
-@Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-  PayHelper.handleWalletResponse(requestCode, resultCode, data, new PayHelper.WalletResponseHandler() {
-
-    @Override public void onWalletError(int requestCode, int errorCode) {
-      // show error, errorCode is one of defined in com.google.android.gms.wallet.WalletConstants
-    }
-
-    @Override public void onFullWallet(FullWallet fullWallet) {
-      PaymentToken paymentToken = PayHelper.extractPaymentToken(fullWallet, ANDROID_PAY_PUBLIC_KEY);
-      completeCheckout(paymentToken);
-    }
-  });
-}
-```
-
-#### SupportWalletFragment [⤴](#table-of-contents)
-
-In most cases, you will embed the confirmation fragment `SupportWalletFragment` on order confirmation page. This is provided by Android Pay, and it displays buttons that let users optionally modify the masked wallet information (such as the payment method and shipping address). To initialize this fragment properly and to be able use `PayHelper` for handling responses, you should use `PayHelper#initializeWalletFragment`.
-
-The confirmation fragment will notify in `onActivityResult` about any changes that were made by user to their Masked Wallet information (such as changing a shipping address). To handle responses to these changes, you can use the same helper function `PayHelper.handleWalletResponse`:
-
-```java
-@Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-  PayHelper.handleWalletResponse(requestCode, resultCode, data, new PayHelper.WalletResponseHandler() {
-
-    @Override public void onMaskedWallet(MaskedWallet maskedWallet) {
-      // called when user made changes to Masked Wallet information
-      // like shipping address that requires to update checkout to request new shipping rates
-
-      updateMaskedWallet(maskedWallet);
-    }
-});
-```
-
-#### Retry Purchase [⤴](#table-of-contents)
-
-In some cases, a checkout can't be completed with the payment token that was obtained from the Full Wallet information, and you want the user to retry the checkout. As soon as you get Full Wallet information for the specified Masked Wallet, the transaction associated with it is considered complete and can't be used again to request Full Wallet information. To resolve this, you need to start a new transaction by obtaining a Masked Wallet with a new Google Transaction Id. Otherwise, if you try to use it again then you will receive the `WalletConstants.ERROR_CODE_INVALID_TRANSACTION` error.
-
-To request new Masked Wallet information with a new Google Transaction Id associated with it:
-
-```java
-PayHelper.newMaskedWallet(googleApiClient, maskedWallet);
-```
-
-In other cases, you can receive the `WalletConstants.ERROR_CODE_INVALID_TRANSACTION` error if your payment gateway isn't responding or if you retry a checkout by requesting Full Wallet information while the token is still being processed. This means that the current Google Transaction Id is no longer valid. To continue, you need to start a new transaction by requesting new Masked Wallet information:
-
-```java
-@Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-  PayHelper.handleWalletResponse(requestCode, resultCode, data, new PayHelper.WalletResponseHandler() {
-
-    @Override public void onMaskedWalletRequest() {
-      PayHelper.requestMaskedWallet(googleApiClient, payCart, ANDROID_PAY_PUBLIC_KEY);
-    }
-
-    @Override public void onMaskedWallet(MaskedWallet maskedWallet) {
-      updateMaskedWallet(maskedWallet);
-    }
-});
-```
-
-Learn more about [Android Pay](https://developers.google.com/android-pay/get-started)
 
 ## Case studies [⤴](#table-of-contents)
 
@@ -1232,7 +1032,11 @@ Since we'll need to update the checkout with additional information later, all w
 
 #### Updating a checkout [⤴](#table-of-contents)
 
-A customer's information may not be available when a checkout is created. The Buy SDK provides mutations for updating specific checkout fields that are required for completion: the `email` and `shippingAddress` fields.
+A customer's information might not be available when a checkout is created. The Buy SDK provides mutations for updating the specific checkout fields that are required for completion: the `email`, `shippingAddress` and  `shippingLine` fields.
+
+Note that if your checkout contains a line item that requires shipping, you must provide a shipping address and a shipping line as part of your checkout.
+
+To obtain the handle required for updating a shipping line, you must first poll for shipping rates.
 
 ###### Updating email [⤴](#table-of-contents)
 
@@ -1282,7 +1086,7 @@ Storefront.MutationQuery query = Storefront.mutation((mutationQuery -> mutationQ
 );
 ```
 
-#### Polling for shipping rates [⤴](#table-of-contents)
+##### Polling for shipping rates [⤴](#table-of-contents)
 
 Available shipping rates are specific to a checkout since the cost to ship items depends on the quantity, weight, and other attributes of the items in the checkout. Shipping rates also require a checkout to have a valid `shippingAddress`, which can be updated using steps found in [updating a checkout](#updating-a-checkout-). Available shipping rates are a field on `Storefront.Checkout`, so given a `checkoutId` (that we kept a reference to earlier) we can query for shipping rates:
 
@@ -1334,13 +1138,23 @@ client.queryGraph(query).enqueue(
 
 The callback `onResponse` will be called only if `availableShippingRates.ready == true` or the retry count reaches 10.
 
+##### Updating shipping line [⤴](#table-of-contents)
+
+```java
+ID checkoutId = ...
+Storefront.ShippingRate shippingRate = ...
+Storefront.mutation(m -> m.checkoutShippingLineUpdate(checkoutId, shippingRate.getHandle(), update ->
+	update.userErrors(errors -> errors.field().message())
+))
+```
+
 #### Completing a checkout [⤴](#table-of-contents)
 
 After all required fields have been filled and the customer is ready to pay, you have three ways to complete the checkout and process the payment:
 
 - [Web](#web-checkout-)
 - [Credit card](#credit-card-checkout-)
-- [Android Pay](#android-pay-checkout-)
+- [Google Pay](#google-pay-checkout-)
 
 ##### Web checkout [⤴](#table-of-contents)
 
@@ -1399,33 +1213,18 @@ client.mutateGraph(query).enqueue(new GraphCall.Callback<Storefront.Mutation>() 
 });
 ```
 
-##### Android Pay checkout [⤴](#table-of-contents)
+##### Google Pay checkout [⤴](#table-of-contents)
 
-**DEPRECATED. NOT SUPPORTED**
-
-The Buy SDK makes Android Pay integration easy with the provided `android-pay` module. Refer to the [Android Pay](#android-pay-) section on how to helper classes and obtain a payment token. With token in-hand, we can complete the checkout:
+With Google Pay token in-hand, we can complete the checkout:
 
 ```java
 GraphClient client = ...;
 ID checkoutId = ...;
-PaymentToken paymentToken = ...;
-PayAddress billingAddress = ...;
-PayCart payCart = ...;
 String idempotencyKey = UUID.randomUUID().toString();
+Storefront.MailingAddressInput billingAddressInput = ...;
 
-Storefront.MailingAddressInput mailingAddressInput = new Storefront.MailingAddressInput()
-  .setAddress1(billingAddress.address1)
-  .setAddress2(billingAddress.address2)
-  .setCity(billingAddress.city)
-  .setCountry(billingAddress.country)
-  .setFirstName(billingAddress.firstName)
-  .setLastName(billingAddress.lastName)
-  .setPhone(billingAddress.phone)
-  .setProvince(billingAddress.province)
-  .setZip(billingAddress.zip);
-
-Storefront.TokenizedPaymentInput input = new Storefront.TokenizedPaymentInput(payCart.totalPrice, idempotencyKey,
-  mailingAddressInput, paymentToken.token, "android_pay").setIdentifier(paymentToken.publicKeyHash);
+Storefront.TokenizedPaymentInput input = new Storefront.TokenizedPaymentInput(totalPrice, idempotencyKey,
+  billingAddressInput, "google_pay", googlePayToken).setIdentifier(paymentToken.publicKeyHash);
 
 Storefront.MutationQuery query = Storefront.mutation(mutationQuery -> mutationQuery
   .checkoutCompleteWithTokenizedPayment(checkoutId, input, payloadQuery -> payloadQuery
@@ -1445,11 +1244,11 @@ Storefront.MutationQuery query = Storefront.mutation(mutationQuery -> mutationQu
 
 client.mutateGraph(query).enqueue(new GraphCall.Callback<Storefront.Mutation>() {
   @Override public void onResponse(@NonNull final GraphResponse<Storefront.Mutation> response) {
-    if (!response.data().getCheckoutCompleteWithCreditCard().getUserErrors().isEmpty()) {
+    if (!response.data().getCheckoutCompleteWithTokenizedPayment().getUserErrors().isEmpty()) {
       // handle user friendly errors
     } else {
-      boolean checkoutReady = response.data().getCheckoutCompleteWithCreditCard().getCheckout().getReady();
-      boolean paymentReady = response.data().getCheckoutCompleteWithCreditCard().getPayment().getReady();
+      boolean checkoutReady = response.data().getCheckoutCompleteWithTokenizedPayment().getCheckout().getReady();
+      boolean paymentReady = response.data().getCheckoutCompleteWithTokenizedPayment().getPayment().getReady();
     }
   }
 
